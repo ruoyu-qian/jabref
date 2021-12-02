@@ -59,9 +59,9 @@ public class JabRefGUI {
         openWindow(mainStage);
 
         new VersionWorker(Globals.BUILD_INFO.version,
-                preferencesService.getVersionPreferences().getIgnoredVersion(),
                 mainFrame.getDialogService(),
-                Globals.TASK_EXECUTOR)
+                Globals.TASK_EXECUTOR,
+                preferencesService.getVersionPreferences())
                 .checkForNewVersionDelayed();
     }
 
@@ -221,16 +221,11 @@ public class JabRefGUI {
 
     private void saveWindowState(Stage mainStage) {
         GuiPreferences preferences = preferencesService.getGuiPreferences();
-        preferencesService.storeGuiPreferences(new GuiPreferences(
-                mainStage.getX(),
-                mainStage.getY(),
-                mainStage.getWidth(),
-                mainStage.getHeight(),
-                mainStage.isMaximized(),
-                preferences.shouldOpenLastEdited(),
-                preferences.getLastFilesOpened(),
-                preferences.getLastFocusedFile(),
-                preferences.getSidePaneWidth()));
+        preferences.setPositionX(mainStage.getX());
+        preferences.setPositionY(mainStage.getY());
+        preferences.setSizeX(mainStage.getWidth());
+        preferences.setSizeY(mainStage.getHeight());
+        preferences.setWindowMaximised(mainStage.isMaximized());
         debugLogWindowState(mainStage);
     }
 
@@ -284,6 +279,7 @@ public class JabRefGUI {
             try {
                 parsedDatabase = OpenDatabase.loadDatabase(
                         dbFile,
+                        preferencesService.getGeneralPreferences(),
                         preferencesService.getImportFormatPreferences(),
                         Globals.getFileUpdateMonitor());
             } catch (IOException ex) {

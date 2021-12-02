@@ -28,6 +28,7 @@ import de.saxsys.mvvmfx.utils.validation.Validator;
 public class LinkedFilesTabViewModel implements PreferenceTabViewModel {
 
     private final StringProperty mainFileDirectoryProperty = new SimpleStringProperty("");
+    private final BooleanProperty useMainFileDirectoryProperty = new SimpleBooleanProperty();
     private final BooleanProperty useBibLocationAsPrimaryProperty = new SimpleBooleanProperty();
     private final BooleanProperty autolinkFileStartsBibtexProperty = new SimpleBooleanProperty();
     private final BooleanProperty autolinkFileExactBibtexProperty = new SimpleBooleanProperty();
@@ -41,15 +42,13 @@ public class LinkedFilesTabViewModel implements PreferenceTabViewModel {
     private final Validator mainFileDirValidator;
 
     private final DialogService dialogService;
-    private final PreferencesService preferences;
     private final FilePreferences filePreferences;
-    private final AutoLinkPreferences initialAutoLinkPreferences;
+    private final AutoLinkPreferences autoLinkPreferences;
 
     public LinkedFilesTabViewModel(DialogService dialogService, PreferencesService preferences) {
         this.dialogService = dialogService;
-        this.preferences = preferences;
         this.filePreferences = preferences.getFilePreferences();
-        this.initialAutoLinkPreferences = preferences.getAutoLinkPreferences();
+        this.autoLinkPreferences = preferences.getAutoLinkPreferences();
 
         mainFileDirValidator = new FunctionBasedValidator<>(
                 mainFileDirectoryProperty,
@@ -75,18 +74,19 @@ public class LinkedFilesTabViewModel implements PreferenceTabViewModel {
     public void setValues() {
         // External files preferences / Attached files preferences / File preferences
         mainFileDirectoryProperty.setValue(filePreferences.getFileDirectory().orElse(Path.of("")).toString());
+        useMainFileDirectoryProperty.setValue(!filePreferences.shouldStoreFilesRelativeToBibFile());
         useBibLocationAsPrimaryProperty.setValue(filePreferences.shouldStoreFilesRelativeToBibFile());
         fileNamePatternProperty.setValue(filePreferences.getFileNamePattern());
         fileDirectoryPatternProperty.setValue(filePreferences.getFileDirectoryPattern());
 
         // Autolink preferences
-        switch (initialAutoLinkPreferences.getCitationKeyDependency()) {
+        switch (autoLinkPreferences.getCitationKeyDependency()) {
             case START -> autolinkFileStartsBibtexProperty.setValue(true);
             case EXACT -> autolinkFileExactBibtexProperty.setValue(true);
             case REGEX -> autolinkUseRegexProperty.setValue(true);
         }
 
-        autolinkRegexKeyProperty.setValue(initialAutoLinkPreferences.getRegularExpression());
+        autolinkRegexKeyProperty.setValue(autoLinkPreferences.getRegularExpression());
     }
 
     @Override
@@ -99,18 +99,15 @@ public class LinkedFilesTabViewModel implements PreferenceTabViewModel {
         filePreferences.setDownloadLinkedFiles(filePreferences.shouldDownloadLinkedFiles()); // set in ImportEntriesViewModel
 
         // Autolink preferences
-        AutoLinkPreferences.CitationKeyDependency citationKeyDependency = AutoLinkPreferences.CitationKeyDependency.START;
-        if (autolinkFileExactBibtexProperty.getValue()) {
-            citationKeyDependency = AutoLinkPreferences.CitationKeyDependency.EXACT;
+        if (autolinkFileStartsBibtexProperty.getValue()) {
+            autoLinkPreferences.setCitationKeyDependency(AutoLinkPreferences.CitationKeyDependency.START);
+        } else if (autolinkFileExactBibtexProperty.getValue()) {
+            autoLinkPreferences.setCitationKeyDependency(AutoLinkPreferences.CitationKeyDependency.EXACT);
         } else if (autolinkUseRegexProperty.getValue()) {
-            citationKeyDependency = AutoLinkPreferences.CitationKeyDependency.REGEX;
+            autoLinkPreferences.setCitationKeyDependency(AutoLinkPreferences.CitationKeyDependency.REGEX);
         }
 
-        preferences.storeAutoLinkPreferences(new AutoLinkPreferences(
-                citationKeyDependency,
-                autolinkRegexKeyProperty.getValue(),
-                initialAutoLinkPreferences.shouldAskAutoNamingPdfs(),
-                preferences.getKeywordDelimiter()));
+        autoLinkPreferences.setRegularExpression(autolinkRegexKeyProperty.getValue());
     }
 
     ValidationStatus mainFileDirValidationStatus() {
@@ -136,7 +133,6 @@ public class LinkedFilesTabViewModel implements PreferenceTabViewModel {
     }
 
     // External file links
-
     public StringProperty mainFileDirectoryProperty() {
         return mainFileDirectoryProperty;
     }
@@ -171,6 +167,10 @@ public class LinkedFilesTabViewModel implements PreferenceTabViewModel {
 
     public StringProperty fileDirectoryPatternProperty() {
         return fileDirectoryPatternProperty;
+    }
+
+    public BooleanProperty useMainFileDirectoryProperty() {
+        return useMainFileDirectoryProperty;
     }
 }
 
